@@ -1,73 +1,32 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: searches
-    // Document ID: auto-generated
-    // Fields:
-    //   - userId: string (required) - The UID of the user who performed the search.
-    //   - type: string (required, enum: ['text', 'image']) - The type of search.
-    //   - medicineName: string (required) - The name of the identified medicine.
-    //   - composition: string (optional) - The salt composition of the medicine.
-    //   - alternativesCount: number (required) - Number of alternatives found.
-    //   - fullResult: map (required) - The complete JSON response from Gemini.
-    //   - createdAt: timestamp (required) - Server-side timestamp.
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
     
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email == "prashantsrivastava761@gmail.com";
     }
-
-    // Validate that the document contains only the allowed fields
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    // ===============================================================
-    // Domain Validators
-    // ===============================================================
 
     function isValidSearch(data) {
-      return hasOnlyAllowedFields(['userId', 'type', 'medicineName', 'composition', 'alternativesCount', 'fullResult', 'createdAt']) &&
-             data.userId is string &&
+      return data.userId is string &&
              data.type in ['text', 'image'] &&
-             data.medicineName is string && data.medicineName.size() > 0 && data.medicineName.size() < 200 &&
+             data.medicineName is string && data.medicineName.size() < 500 &&
              data.alternativesCount is number &&
              data.fullResult is map &&
              data.createdAt == request.time;
     }
 
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
     match /searches/{searchId} {
-      // 1. A logged in user can only READ documents where the userId field matches their own auth uid
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      
-      // 2. A logged in user can CREATE a document only if the userId field matches their own auth uid
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() && 
                       request.resource.data.userId == request.auth.uid &&
                       isValidSearch(request.resource.data);
-      
-      // 3. Nobody can UPDATE or DELETE any document
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
 
-    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }

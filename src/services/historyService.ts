@@ -15,13 +15,8 @@ import { db } from '../firebase';
  */
 export async function saveSearch(userId: string, type: 'text' | 'image', resultData: any) {
   try {
-    const medicineName = type === 'text' 
-      ? resultData.original?.name 
-      : resultData.detected?.name;
-    
-    const composition = type === 'text'
-      ? resultData.original?.composition
-      : resultData.detected?.composition;
+    const medicineName = resultData.original?.name;
+    const composition = resultData.original?.composition;
 
     const historyData = {
       userId,
