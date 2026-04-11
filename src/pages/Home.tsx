@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, Upload, Camera, X, Loader2, AlertCircle, Image as ImageIcon } from 'lucide-react';
 
 import Navbar from '../components/Navbar';
+import Logo from '../components/Logo';
 
 export default function Home() {
   const [mode, setMode] = useState<'text' | 'image'>('text');
@@ -111,7 +112,15 @@ export default function Home() {
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-4 pt-12">
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 flex flex-col items-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8"
+          >
+            <Logo size="lg" showTagline />
+          </motion.div>
+          
           <motion.h2 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}

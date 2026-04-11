@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { logOut } from '../services/authService';
 import { LogOut, History as HistoryIcon, User } from 'lucide-react';
+import Logo from './Logo';
 
 export default function Navbar() {
   const { user } = useAuth();
@@ -21,10 +22,7 @@ export default function Navbar() {
     <nav className="bg-white border-b border-slate-200 px-4 py-4 sticky top-0 z-20">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="bg-emerald-600 p-1.5 rounded-lg">
-            <div className="text-white font-bold text-sm tracking-tighter">GM</div>
-          </div>
-          <span className="font-bold text-slate-900 text-lg">GenMeds</span>
+          <Logo size="sm" />
         </Link>
         
         <div className="flex items-center gap-4">
