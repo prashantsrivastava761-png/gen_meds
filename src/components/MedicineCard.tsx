@@ -9,8 +9,15 @@ import {
   ChevronUp, 
   Info,
   Package,
-  CheckCircle2
+  ShoppingCart,
+  ExternalLink,
+  Copy,
+  Check,
+  Store,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
+import { generateBuyLinks } from '../utils/buyLinks';
 
 interface Medicine {
   name: string;
@@ -21,6 +28,7 @@ interface Medicine {
   form: string;
   reason: string;
   availability: string;
+  platforms?: string[];
 }
 
 interface MedicineCardProps {
@@ -29,6 +37,28 @@ interface MedicineCardProps {
 
 export default function MedicineCard({ medicine }: MedicineCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showPopupWarning, setShowPopupWarning] = useState(false);
+  const buyLinks = generateBuyLinks(medicine.name, medicine.platforms);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(medicine.name);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCompareAll = () => {
+    setShowPopupWarning(true);
+    buyLinks.forEach(link => {
+      window.open(link.url, '_blank');
+    });
+    // Hide warning after 5 seconds
+    setTimeout(() => setShowPopupWarning(false), 5000);
+  };
+
+  const isOfflineOnly = medicine.availability.toLowerCase() === 'offline' && (!medicine.platforms || medicine.platforms.length === 0);
+  const isBoth = medicine.availability.toLowerCase() === 'both';
+  const hasOnline = buyLinks.length > 0;
 
   return (
     <motion.div
@@ -60,7 +90,7 @@ export default function MedicineCard({ medicine }: MedicineCardProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-2 gap-4 mb-3">
         <div className="p-3 bg-slate-50 rounded-xl">
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Price</p>
           <p className="text-slate-900 font-bold flex items-center">
@@ -76,6 +106,16 @@ export default function MedicineCard({ medicine }: MedicineCardProps) {
           </p>
         </div>
       </div>
+
+      {hasOnline && (
+        <div className="mb-4 p-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
+          <span className="text-sm">💡</span>
+          <p className="text-[11px] text-amber-800 leading-tight">
+            Prices may vary across platforms. <br />
+            <span className="font-bold">Compare before buying for best deal.</span>
+          </p>
+        </div>
+      )}
 
       <AnimatePresence>
         {isExpanded && (
@@ -105,20 +145,114 @@ export default function MedicineCard({ medicine }: MedicineCardProps) {
         )}
       </AnimatePresence>
 
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full mt-2 py-2 flex items-center justify-center gap-1 text-xs font-bold text-slate-400 hover:text-emerald-600 transition-colors border-t border-slate-50 pt-4"
-      >
-        {isExpanded ? (
-          <>
-            Show Less <ChevronUp className="h-3 w-3" />
-          </>
+      <div className="mt-2 border-t border-slate-50 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            {isOfflineOnly ? 'Availability' : 'Buy Online'}
+          </h5>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors"
+          >
+            {isExpanded ? (
+              <>
+                Show Less <ChevronUp className="h-2.5 w-2.5" />
+              </>
+            ) : (
+              <>
+                More Info <ChevronDown className="h-2.5 w-2.5" />
+              </>
+            )}
+          </button>
+        </div>
+
+        {isOfflineOnly ? (
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="flex items-start gap-3">
+              <div className="bg-white p-2 rounded-xl shadow-sm">
+                <Store className="h-5 w-5 text-slate-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-900">Available at local pharmacy only</p>
+                <p className="text-xs text-slate-500 mt-0.5">Show this medicine name to your pharmacist</p>
+              </div>
+            </div>
+            <button
+              onClick={handleCopy}
+              className={`w-full mt-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                copied 
+                  ? 'bg-emerald-100 text-emerald-700' 
+                  : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-500 hover:text-emerald-600'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy Name
+                </>
+              )}
+            </button>
+          </div>
         ) : (
-          <>
-            More Info <ChevronDown className="h-3 w-3" />
-          </>
+          <div className="space-y-3">
+            {buyLinks.length > 1 && (
+              <div className="mb-2">
+                <button
+                  onClick={handleCompareAll}
+                  className="w-full py-2 rounded-xl border-2 border-dashed border-slate-200 text-slate-600 text-xs font-bold hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Compare on all platforms
+                </button>
+                <div className="flex items-center justify-between mt-1 px-1">
+                  <p className="text-[9px] text-slate-400 italic">
+                    This will open {buyLinks.length} tabs
+                  </p>
+                  {showPopupWarning && (
+                    <p className="text-[9px] text-amber-600 font-bold flex items-center gap-1">
+                      <AlertCircle className="h-2.5 w-2.5" />
+                      Allow popups if tabs don't open
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {buyLinks.map((link) => (
+                <a
+                  key={link.key}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ backgroundColor: link.color }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-[10px] font-bold shadow-sm hover:brightness-90 transition-all"
+                >
+                  <ShoppingCart className="h-3 w-3" />
+                  {link.label}
+                  <ExternalLink className="h-2.5 w-2.5 opacity-50" />
+                </a>
+              ))}
+            </div>
+            
+            {isBoth && (
+              <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-md w-fit">
+                <Store className="h-3 w-3" />
+                Also available at local pharmacies
+              </div>
+            )}
+
+            <p className="text-[9px] text-slate-400">
+              Links open pharmacy search pages. Verify medicine availability before purchase.
+            </p>
+          </div>
         )}
-      </button>
+      </div>
     </motion.div>
   );
 }

@@ -10,7 +10,7 @@ const getAIClient = () => {
 };
 
 /**
- * Converts a File object to a base64 string.
+ * Converts a File object to a base64 string for Gemini API.
  */
 async function fileToGenerativePart(file: File): Promise<{ inlineData: { data: string; mimeType: string } }> {
   return new Promise((resolve, reject) => {
@@ -54,7 +54,14 @@ export async function findByName(medicineName: string) {
        - Estimated savings percentage compared to the original
        - Dosage form (e.g., Tablet, Capsule, Syrup)
        - Reason why it is a good alternative
-       - General availability in India
+       - Availability: "online", "offline", or "both"
+       - Platforms: An array of strings identifying which Indian online pharmacy platforms are most likely to carry this medicine.
+         - Instructions for platforms:
+           - Popular branded generics: include ["1mg", "pharmeasy", "netmeds", "apollo"]
+           - Very cheap/local generics: include only ["pharmeasy", "netmeds"]
+           - Well known brands: include ["1mg", "pharmeasy", "netmeds", "apollo"]
+           - If availability is "offline" only: return empty platforms array []
+           - The platforms array should only include platforms where the medicine is realistically available to buy online.
 
     Strict Requirements:
     - Return ONLY a valid JSON object.
@@ -65,10 +72,11 @@ export async function findByName(medicineName: string) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-flash-latest",
       contents: prompt,
       config: {
-        temperature: 0.1,
+        temperature: 0.2,
+        maxOutputTokens: 4096,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -95,9 +103,13 @@ export async function findByName(medicineName: string) {
                   savings: { type: Type.STRING },
                   form: { type: Type.STRING },
                   reason: { type: Type.STRING },
-                  availability: { type: Type.STRING }
+                  availability: { type: Type.STRING },
+                  platforms: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                  }
                 },
-                required: ["name", "manufacturer", "composition", "price", "savings", "form", "reason", "availability"]
+                required: ["name", "manufacturer", "composition", "price", "savings", "form", "reason", "availability", "platforms"]
               }
             },
             disclaimer: { type: Type.STRING }
@@ -112,34 +124,31 @@ export async function findByName(medicineName: string) {
       throw new Error("Empty response from Gemini AI");
     }
 
-    let result;
+    // Robust JSON parsing
+    let cleanJson = text.trim();
+    
+    // Remove markdown code fences if present
+    if (cleanJson.startsWith("```")) {
+      cleanJson = cleanJson.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+    
     try {
-      const cleanJson = text.replace(/```json|```/g, "").trim();
-      result = JSON.parse(cleanJson);
-    } catch (e) {
-      // Fallback: Try to extract JSON using regex if direct parse fails
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          result = JSON.parse(jsonMatch[0]);
-        } catch (innerError) {
-          throw new Error("Failed to parse medicine data. Please try again.");
-        }
-      } else {
-        throw new Error("Failed to parse medicine data. Please try again.");
+      const result = JSON.parse(cleanJson);
+      if (!result.alternatives) {
+        result.alternatives = [];
       }
+      return result;
+    } catch (parseError) {
+      console.error("JSON Parse Error. Raw text:", text);
+      throw new Error("The AI returned an incomplete response. Please try again.");
     }
-
-    // Ensure alternatives is at least an empty array
-    if (!result.alternatives) {
-      result.alternatives = [];
-    }
-
-    return result;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     if (error.message.includes("GEMINI_API_KEY")) throw error;
-    throw new Error("Failed to identify medicine. Please check the name and try again.");
+    
+    // Provide more descriptive error for debugging
+    const errorMessage = error.message || "Unknown error";
+    throw new Error(`Failed to identify medicine: ${errorMessage}`);
   }
 }
 
@@ -169,43 +178,25 @@ export async function findByImage(imageFile: File) {
        - Estimated savings percentage compared to the detected medicine
        - Dosage form (e.g., Tablet, Capsule, Syrup)
        - Reason why it is a good alternative
-       - General availability in India
+       - Availability: "online", "offline", or "both"
+       - Platforms: An array of strings identifying which Indian online pharmacy platforms are most likely to carry this medicine.
+         - Instructions for platforms:
+           - Popular branded generics: include ["1mg", "pharmeasy", "netmeds", "apollo"]
+           - Very cheap/local generics: include only ["pharmeasy", "netmeds"]
+           - Well known brands: include ["1mg", "pharmeasy", "netmeds", "apollo"]
+           - If availability is "offline" only: return empty platforms array []
+           - The platforms array should only include platforms where the medicine is realistically available to buy online.
 
     Strict Requirements:
     - Return ONLY a valid JSON object.
     - Do NOT include any markdown code fences (like \`\`\`json).
     - Do NOT include any explanations or introductory text.
-    - If the medicine is not readable or identifiable from the image, set the "error" field with a clear explanation and leave "detected" and "alternatives" as null or empty.
-
-    JSON Format:
-    {
-      "detected": {
-        "name": "string",
-        "composition": "string",
-        "price": "string",
-        "manufacturer": "string",
-        "confidence": "high/medium/low"
-      },
-      "alternatives": [
-        {
-          "name": "string",
-          "manufacturer": "string",
-          "composition": "string",
-          "price": "string",
-          "savings": "string",
-          "form": "string",
-          "reason": "string",
-          "availability": "string"
-        }
-      ],
-      "disclaimer": "Always consult your doctor before switching medicines.",
-      "error": "string or null"
-    }
+    - If the medicine is not readable or identifiable from the image, set the "error" field with a clear explanation.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-flash-latest",
       contents: {
         parts: [
           { text: prompt },
@@ -213,12 +204,13 @@ export async function findByImage(imageFile: File) {
         ]
       },
       config: {
-        temperature: 0.1,
+        temperature: 0.2,
+        maxOutputTokens: 4096,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            detected: {
+            original: {
               type: Type.OBJECT,
               nullable: true,
               properties: {
@@ -241,8 +233,13 @@ export async function findByImage(imageFile: File) {
                   savings: { type: Type.STRING },
                   form: { type: Type.STRING },
                   reason: { type: Type.STRING },
-                  availability: { type: Type.STRING }
-                }
+                  availability: { type: Type.STRING },
+                  platforms: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                  }
+                },
+                required: ["name", "manufacturer", "composition", "price", "savings", "form", "reason", "availability", "platforms"]
               }
             },
             disclaimer: { type: Type.STRING },
@@ -258,38 +255,32 @@ export async function findByImage(imageFile: File) {
       throw new Error("Empty response from Gemini AI");
     }
 
-    let result;
+    // Robust JSON parsing
+    let cleanJson = text.trim();
+    
+    // Remove markdown code fences if present
+    if (cleanJson.startsWith("```")) {
+      cleanJson = cleanJson.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+    
     try {
-      const cleanJson = text.replace(/```json|```/g, "").trim();
-      result = JSON.parse(cleanJson);
-    } catch (e) {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          result = JSON.parse(jsonMatch[0]);
-        } catch (innerError) {
-          throw new Error("Failed to process image data. Please try again.");
-        }
-      } else {
-        throw new Error("Failed to process image data. Please try again.");
+      const result = JSON.parse(cleanJson);
+      if (result.error) {
+        return result;
       }
+      if (!result.alternatives) {
+        result.alternatives = [];
+      }
+      return result;
+    } catch (parseError) {
+      console.error("JSON Parse Error (Image). Raw text:", text);
+      throw new Error("The AI returned an incomplete response from the image. Please try again.");
     }
-
-    if (result.error) {
-      return result; // Return result with error field set
-    }
-
-    // Ensure alternatives is at least an empty array
-    if (!result.alternatives) {
-      result.alternatives = [];
-    }
-
-    return result;
   } catch (error: any) {
     console.error("Gemini Image API Error:", error);
     if (error.message.includes("GEMINI_API_KEY")) throw error;
-    throw new Error("Failed to process image. Please ensure the medicine name is clearly visible.");
+    
+    const errorMessage = error.message || "Unknown error";
+    throw new Error(`Failed to process image: ${errorMessage}`);
   }
 }
-
-
