@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "SearchRecord": {
+      "title": "Search Record",
+      "description": "A record of a medicine search performed by a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who performed the search."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text", "image"],
+          "description": "The type of search performed."
+        },
+        "medicineName": {
+          "type": "string",
+          "description": "The name of the identified medicine."
+        },
+        "composition": {
+          "type": "string",
+          "description": "The salt composition of the medicine."
+        },
+        "alternativesCount": {
+          "type": "number",
+          "description": "The number of generic alternatives found."
+        },
+        "fullResult": {
+          "type": "object",
+          "description": "The complete JSON response from the Gemini API."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the search was saved."
+        }
+      },
+      "required": ["userId", "type", "medicineName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/searches/{searchId}": {
+      "schema": "SearchRecord",
+      "description": "Collection of medicine search history records."
+    }
+  }
+}

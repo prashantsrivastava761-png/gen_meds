@@ -1,0 +1,37 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /medicine-uploads/{userId}/{allPaths=**} {
+      // Only authenticated users can upload files to their own folder
+      // Max file size: 5MB (5 * 1024 * 1024 bytes)
+      // Only allow image file types
+      allow write: if isOwner(userId) &&
+                     request.resource.size < 5 * 1024 * 1024 &&
+                     request.resource.contentType.matches('image/(jpeg|png|webp)');
+      
+      // Users can read their own uploads
+      allow read: if isOwner(userId);
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
