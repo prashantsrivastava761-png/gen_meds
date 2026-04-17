@@ -13,17 +13,22 @@ service cloud.firestore {
     function isValidSearch(data) {
       return data.userId is string &&
              data.type in ['text', 'image'] &&
-             data.medicineName is string && data.medicineName.size() < 500 &&
+             data.medicineName is string && data.medicineName.size() < 1000 &&
              data.alternativesCount is number &&
-             data.fullResult is map &&
-             data.createdAt == request.time;
+             data.fullResult is map;
     }
 
     match /searches/{searchId} {
+      // Allow read if the user is the owner or an admin
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Allow create if the user is setting themselves as the owner and data is valid
       allow create: if isAuthenticated() && 
                       request.resource.data.userId == request.auth.uid &&
-                      isValidSearch(request.resource.data);
+                      isValidSearch(request.resource.data) &&
+                      request.resource.data.createdAt == request.time;
+      
+      // Only admins can update or delete
       allow update, delete: if isAdmin();
     }
 
