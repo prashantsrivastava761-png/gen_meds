@@ -1,0 +1,5 @@
+{
+  "name": "GenMeds",
+  "description": "An AI-powered platform to identify medicines from photos and find affordable generic alternatives with the same salt composition.",
+  "requestFramePermissions": ["camera"]
+}
