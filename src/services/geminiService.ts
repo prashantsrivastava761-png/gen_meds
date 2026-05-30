@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 // Initialize the Gemini AI client
 const getAIClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not configured. Please add it to your environment variables.");
   }
@@ -72,7 +72,7 @@ export async function findByName(medicineName: string) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3.1-flash-lite",
       contents: prompt,
       config: {
         temperature: 0.2,
@@ -196,7 +196,7 @@ export async function findByImage(imageFile: File) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3.1-flash-lite",
       contents: {
         parts: [
           { text: prompt },
